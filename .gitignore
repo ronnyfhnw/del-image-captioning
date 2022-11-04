@@ -1,5 +1,6 @@
 flickr8k/images/*.jpg
 flickr8k
+flickr8k_copy
 .vector_cache/glove.6B.zip
 .vector_cache/glove.6B.50d.txt
 .vector_cache/glove.6B.300d.txt.pt
@@ -9,3 +10,5 @@ flickr8k
 *.pt
 *.jpg
 *.txt
+.vector_cache
+venv

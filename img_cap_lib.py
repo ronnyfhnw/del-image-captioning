@@ -108,6 +108,9 @@ class CaptionPreprocessor:
         self.captions = self.captions.dropna()
         self.captions.caption = self.captions.caption.apply(lambda x: x.translate(str.maketrans(' ', ' ', string.punctuation)))
         self.captions = self.captions.dropna()
+
+        # strip image up until ".jpg" and add ".jpg" to the end
+        self.captions.image = self.captions.image.apply(lambda x: x.split(".jpg")[0] + ".jpg")
         
         print("Shape captions after filtering:", self.captions.shape)
         print("Removed Captions: ", old_shape[0] - self.captions.shape[0], ", in Percent: ", round(((old_shape[0] - self.captions.shape[0]) / old_shape[0]) * 100, 2))
@@ -394,8 +397,9 @@ class DecoderRNN(torch.nn.Module):
         num_layers int: The number of layers of the RNN. 
         dropout float: The dropout rate of the RNN. 
     '''
-    def __init__(self, input_size:int, hidden_size:int, len_vocab:int, num_layers:int=1, dropout:float=0.0):
+    def __init__(self, input_size:int, hidden_size:int, len_vocab:int, num_layers:int=1, dropout:float=0.0, len_subtract:int=1):
         super(DecoderRNN, self).__init__()
+        self.len_subtract = len_subract
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -417,7 +421,7 @@ class DecoderRNN(torch.nn.Module):
             output torch.Tensor: The output of the RNN. Shape: (seq_len, batch_size)
         '''
         # subtract 1 from lengths to remove the <EOS> token --> this teaches the model to stop predicting
-        lengths = lengths - 1
+        lengths = lengths - self.len_subtract
         # pack data
         packed = torch.nn.utils.rnn.pack_padded_sequence(x, lengths, enforce_sorted=False)
         output, _ = self.rnn(packed)
@@ -571,8 +575,11 @@ class ImageCaptioning(torch.nn.Module):
         # set model to training mode
         self.model.train()
 
+        average_epoch_losses = []
+
         # loop over epochs
         for epoch in range(epochs):
+            epoch_loss = 0
             # loop over batches
             for i, (images, captions, lengths, vectorized_captions) in enumerate(loader):
                 # send data to device
@@ -591,6 +598,7 @@ class ImageCaptioning(torch.nn.Module):
                 
                 # calculate loss
                 loss = criterion(output, vectorized_captions)
+                epoch_loss += loss.item()
 
                 # backpropagate loss
                 loss.backward()
@@ -602,6 +610,8 @@ class ImageCaptioning(torch.nn.Module):
                 if i % print_every == 0:
                     print(f'Epoch: {epoch+1}/{epochs} | Batch: {i+1}/{len(loader)} | Loss: {loss.item()}')
                 losses.append(loss.item())
+            print(f'Epoch: {epoch+1}/{epochs} | Average Epoch Loss: {epoch_loss/len(loader)}')
+            average_epoch_losses.append(epoch_loss/len(loader))
 
         model_stats['end_time'] = time.time()
         model_stats['total_time'] = model_stats['end_time'] - model_stats['start_time']
@@ -610,6 +620,7 @@ class ImageCaptioning(torch.nn.Module):
         model_stats['model_state_dict'] = self.model.state_dict()
         model_stats['embedding'] = self.model.embedding
         model_stats['losses'] = losses
+        model_stats['average_epoch_losses'] = average_epoch_losses
 
         return model_stats
     
