@@ -376,7 +376,7 @@ class FlickrDataset(Dataset):
     def __getitem__(self, idx):
         vectorized_caption = torch.from_numpy(np.array(self.captions.vectorized_caption.values[idx]))
         # get image
-        image = torchvision.io.read_image("flickr8k/images_transformed/" + self.captions.iloc[idx, 0]).float()
+        image = torchvision.io.read_image("flickr8k/transformed_images/" + self.captions.iloc[idx, 0]).float()
         # get caption
         caption = self.captions.caption.values[idx]
         # turn string into list
@@ -399,7 +399,7 @@ class DecoderRNN(torch.nn.Module):
     '''
     def __init__(self, input_size:int, hidden_size:int, len_vocab:int, num_layers:int=1, dropout:float=0.0, len_subtract:int=1):
         super(DecoderRNN, self).__init__()
-        self.len_subtract = len_subract
+        self.len_subtract = len_subtract
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -422,12 +422,14 @@ class DecoderRNN(torch.nn.Module):
         '''
         # subtract 1 from lengths to remove the <EOS> token --> this teaches the model to stop predicting
         lengths = lengths - self.len_subtract
+        print(x.shape)
         # pack data
         packed = torch.nn.utils.rnn.pack_padded_sequence(x, lengths, enforce_sorted=False)
         output, _ = self.rnn(packed)
         # pad data
         padded, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
         output = self.fc(padded)
+        print(output.shape)
         return output
 
 class ImageCaptioning(torch.nn.Module):
@@ -481,8 +483,10 @@ class ImageCaptioning(torch.nn.Module):
         # forward pass through decoder
         output = self.decoder.forward(input, lengths)
         
+
         # pad output with 1's until max_caption_length (seq_len, batch_size) --> outputs have to be the same length for loss calculation, network only needs to predict '<EOS>'
         output = torch.cat((output, self.padding_vector[:self.max_caption_length - output.shape[0], :, :]), 0)
+
         
         return output
 
@@ -528,7 +532,7 @@ class ImageCaptioning(torch.nn.Module):
         return captions
 
     # create training function for ImageCaptioning model
-    def train(self, loader, optimizer, criterion, epochs:int=200, print_every:int=100):
+    def train_model(self, loader, optimizer, criterion, epochs:int=200, print_every:int=100):
         '''
         Function for training ImageCaptioning models with different loaders, optimizers and criterions.
 
@@ -557,23 +561,23 @@ class ImageCaptioning(torch.nn.Module):
         model_stats['start_time'] = time.time()
         model_stats['end_time'] = None
         model_stats['total_time'] = None
-        model_stats['encoder_starting_net'] = self.model.encoder.starting_net
-        model_stats['max_caption_length'] = self.model.max_caption_length
+        model_stats['encoder_starting_net'] = self.encoder.starting_net
+        model_stats['max_caption_length'] = self.max_caption_length
 
         # decoder
-        model_stats['decoder_input_size'] = self.model.decoder.input_size
-        model_stats['decoder_hidden_size'] = self.model.decoder.hidden_size
-        model_stats['decoder_len_vocab'] = self.model.decoder.len_vocab
-        model_stats['decoder_num_layers'] = self.model.decoder.num_layers
-        model_stats['decoder_dropout'] = self.model.decoder.dropout
+        model_stats['decoder_input_size'] = self.decoder.input_size
+        model_stats['decoder_hidden_size'] = self.decoder.hidden_size
+        model_stats['decoder_len_vocab'] = self.decoder.len_vocab
+        model_stats['decoder_num_layers'] = self.decoder.num_layers
+        model_stats['decoder_dropout'] = self.decoder.dropout
 
         # send model to device
-        self.model.to(device)
-        self.model.encoder.to(device)
-        self.model.decoder.to(device)
+        self.to(device)
+        self.encoder.to(device)
+        self.decoder.to(device)
 
         # set model to training mode
-        self.model.train()
+        self.train()
 
         average_epoch_losses = []
 
@@ -585,18 +589,19 @@ class ImageCaptioning(torch.nn.Module):
                 # send data to device
                 images = images.to(device)
                 captions = captions.to(device)
-                lengths = lengths.to(device)
+                lengths = lengths.to('cpu')
                 vectorized_captions = vectorized_captions.to(device)
 
                 # zero out gradients
                 optimizer.zero_grad()
 
                 # forward pass through model
-                output = self.model.forward_train(images=images, captions=captions, lengths=lengths)
+                output = self.forward_train(images=images, captions=captions, lengths=lengths)
                 # shape for crossentropy (batch_size, num_classes, seq_len)
                 output = output.permute(1, 2, 0)
                 
                 # calculate loss
+                print(output.shape, vectorized_captions.shape)
                 loss = criterion(output, vectorized_captions)
                 epoch_loss += loss.item()
 
@@ -615,10 +620,10 @@ class ImageCaptioning(torch.nn.Module):
 
         model_stats['end_time'] = time.time()
         model_stats['total_time'] = model_stats['end_time'] - model_stats['start_time']
-        model_stats['encoder_state_dict'] = self.model.encoder.state_dict()
-        model_stats['decoder_state_dict'] = self.model.decoder.state_dict()
-        model_stats['model_state_dict'] = self.model.state_dict()
-        model_stats['embedding'] = self.model.embedding
+        model_stats['encoder_state_dict'] = self.encoder.state_dict()
+        model_stats['decoder_state_dict'] = self.decoder.state_dict()
+        model_stats['model_state_dict'] = self.state_dict()
+        model_stats['embedding'] = self.embedding
         model_stats['losses'] = losses
         model_stats['average_epoch_losses'] = average_epoch_losses
 
