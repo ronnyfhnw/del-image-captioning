@@ -101,7 +101,7 @@ class CaptionPreprocessor:
         self.captions['caption_word_length'] = self.captions.caption.apply(lambda x: len(x.rstrip(" .").split(" ")))
         old_shape = self.captions.shape
         # filter captions with less or equal to 20 words
-        self.captions = self.captions[self.captions.caption_word_length <= self.max_length]
+        self.captions = self.captions[self.captions.caption_word_length <= self.max_length - 2]
 
         # remove all punctuation
         self.captions.caption = self.captions.caption.apply(lambda x: x.strip("."))
@@ -114,6 +114,10 @@ class CaptionPreprocessor:
         
         print("Shape captions after filtering:", self.captions.shape)
         print("Removed Captions: ", old_shape[0] - self.captions.shape[0], ", in Percent: ", round(((old_shape[0] - self.captions.shape[0]) / old_shape[0]) * 100, 2))
+
+        # check if for all iamge_paths a image exists
+        image_paths = np.array(os.listdir("flickr8k/images"))
+        self.captions = self.captions[self.captions.image.isin(image_paths)]
 
     def tokenize_captions(self, caption_length:int):
         '''
@@ -422,14 +426,14 @@ class DecoderRNN(torch.nn.Module):
         '''
         # subtract 1 from lengths to remove the <EOS> token --> this teaches the model to stop predicting
         lengths = lengths - self.len_subtract
-        print(x.shape)
+        
         # pack data
         packed = torch.nn.utils.rnn.pack_padded_sequence(x, lengths, enforce_sorted=False)
         output, _ = self.rnn(packed)
         # pad data
         padded, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
         output = self.fc(padded)
-        print(output.shape)
+        
         return output
 
 class ImageCaptioning(torch.nn.Module):
@@ -485,6 +489,7 @@ class ImageCaptioning(torch.nn.Module):
         
 
         # pad output with 1's until max_caption_length (seq_len, batch_size) --> outputs have to be the same length for loss calculation, network only needs to predict '<EOS>'
+        print(output.shape)
         output = torch.cat((output, self.padding_vector[:self.max_caption_length - output.shape[0], :, :]), 0)
 
         
@@ -525,7 +530,10 @@ class ImageCaptioning(torch.nn.Module):
                     break
 
             # pad output with 1's until max_caption_length (seq_len, batch_size)
-            indexes = torch.cat((indexes, torch.ones((max_length - indexes.shape[0], 1), dtype=torch.long).to(device)), 0)
+            if indexes.shape[0] < max_length:
+                indexes = torch.cat((indexes, torch.ones((max_length - indexes.shape[0], 1), dtype=torch.long).to(device)), 0)
+            elif indexes.shape[0] > max_length:
+                indexes = indexes[:max_length, :]
 
         captions = self.embedding.index_to_caption(indexes)
 
@@ -602,7 +610,12 @@ class ImageCaptioning(torch.nn.Module):
                 
                 # calculate loss
                 print(output.shape, vectorized_captions.shape)
-                loss = criterion(output, vectorized_captions)
+                try:
+                    loss = criterion(output, vectorized_captions)
+                except:
+                    print(output.shape, vectorized_captions.shape)
+                    print(self.embedding.index_to_caption(vectorized_captions.permute(1, 0))[0])
+                    raise
                 epoch_loss += loss.item()
 
                 # backpropagate loss
