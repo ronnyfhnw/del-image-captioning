@@ -463,6 +463,8 @@ class ImageCaptioning(torch.nn.Module):
         self.padding_vector = torch.zeros((max_caption_length, batch_size, self.embedding.embedding_matrix.shape[0])).to(device)
         self.padding_vector[:, :, 1] = 1
 
+        self.words = np.array(self.embedding.words)
+
     def forward_train(self, images, captions, lengths):
         '''
         This function is used during training time. 
@@ -506,37 +508,57 @@ class ImageCaptioning(torch.nn.Module):
         --------
             captions list: A list with the length of batch_size containing the predicted captions.
         '''
-        # extract features from images
+        # optimize inference speed
+        self.eval()
         input = self.encoder.forward(images)
+        hidden = None
+        captions = None
 
-        # create tensor for storing indexes
-        indexes = torch.tensor([], dtype=torch.long).to(device)
-
-        # TODO: implement for a whole batch of images
-
-        # loop over max_length 
-        with torch.no_grad():
-            hidden = None
-            for i in range(max_length):
-                output, hidden = self.decoder.rnn(input, hidden)
-                index = self.decoder.fc(output)
-                indexes = torch.cat((indexes, index.argmax(2).T), 0)
-                # get embedding vector of last predicted word
-                input = self.embedding.embedding_matrix[indexes[-1, :]].unsqueeze(0)
-                input = input.to(device)
-                # break when <EOS> is predicted and fill up the rest of the caption with <PAD>
-                if index.argmax(2).item() == 4:
-                    break
-
-            # pad output with 1's until max_caption_length (seq_len, batch_size)
-            if indexes.shape[0] < max_length:
-                indexes = torch.cat((indexes, torch.ones((max_length - indexes.shape[0], 1), dtype=torch.long).to(device)), 0)
-            elif indexes.shape[0] > max_length:
-                indexes = indexes[:max_length, :]
-
-        captions = self.embedding.index_to_caption(indexes)
+        for i in range(max_length):
+            output, hidden = self.decoder.rnn(input, hidden)
+            indexes = self.decoder.fc(output)
+            indexes = indexes.argmax(dim=2)
+            input = self.embedding.embedding_matrix[indexes]
+            words = self.words[indexes]
+            if captions is None:
+                captions = words
+            else:
+                captions = np.hstack((captions, words))
 
         return captions
+
+        ############################ old shit
+        # # extract features from images
+        # input = self.encoder.forward(images)
+
+        # # create tensor for storing indexes
+        # indexes = torch.tensor([], dtype=torch.long).to(device)
+
+        # # TODO: implement for a whole batch of images
+
+        # # loop over max_length 
+        # with torch.no_grad():
+        #     hidden = None
+        #     for i in range(max_length):
+        #         output, hidden = self.decoder.rnn(input, hidden)
+        #         index = self.decoder.fc(output)
+        #         indexes = torch.cat((indexes, index.argmax(2).T), 0)
+        #         # get embedding vector of last predicted word
+        #         input = self.embedding.embedding_matrix[indexes[-1, :]].unsqueeze(0)
+        #         input = input.to(device)
+        #         # break when <EOS> is predicted and fill up the rest of the caption with <PAD>
+        #         if index.argmax(2).item() == 4:
+        #             break
+
+        #     # pad output with 1's until max_caption_length (seq_len, batch_size)
+        #     if indexes.shape[0] < max_length:
+        #         indexes = torch.cat((indexes, torch.ones((max_length - indexes.shape[0], 1), dtype=torch.long).to(device)), 0)
+        #     elif indexes.shape[0] > max_length:
+        #         indexes = indexes[:max_length, :]
+
+        # captions = self.embedding.index_to_caption(indexes)
+
+        # return captions
 
     # create training function for ImageCaptioning model
     def train_model(self, loader, optimizer, criterion, epochs:int=200, print_every:int=100):
