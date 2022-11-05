@@ -527,7 +527,7 @@ class ImageCaptioning(torch.nn.Module):
 
         return captions
 
-        ############################ old shit
+        ############################ old version of forward function
         # # extract features from images
         # input = self.encoder.forward(images)
 
