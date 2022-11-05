@@ -519,7 +519,7 @@ class ImageCaptioning(torch.nn.Module):
             indexes = self.decoder.fc(output)
             indexes = indexes.argmax(dim=2)
             input = self.embedding.embedding_matrix[indexes]
-            words = self.words[indexes]
+            words = self.words[indexes.cpu()]
             if captions is None:
                 captions = words
             else:
