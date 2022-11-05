@@ -29,7 +29,7 @@ def data_download(target_folder:str="flickr8k"):
     '''
     # check if flickr8k is in the current directory
     if os.path.exists(target_folder) and os.path.exists(f'{target_folder}/captions.txt') and os.path.exists(f'{target_folder}/images'):
-        print('Data already exists at {}'.format(target_folder))
+        print('Data already exi sts at {}'.format(target_folder))
     else:
         print(f'{target_folder} is not in the current directory')
         print('starting download...')
@@ -489,7 +489,6 @@ class ImageCaptioning(torch.nn.Module):
         
 
         # pad output with 1's until max_caption_length (seq_len, batch_size) --> outputs have to be the same length for loss calculation, network only needs to predict '<EOS>'
-        print(output.shape)
         output = torch.cat((output, self.padding_vector[:self.max_caption_length - output.shape[0], :, :]), 0)
 
         
@@ -524,7 +523,7 @@ class ImageCaptioning(torch.nn.Module):
                 indexes = torch.cat((indexes, index.argmax(2).T), 0)
                 # get embedding vector of last predicted word
                 input = self.embedding.embedding_matrix[indexes[-1, :]].unsqueeze(0)
-                
+                input = input.to(device)
                 # break when <EOS> is predicted and fill up the rest of the caption with <PAD>
                 if index.argmax(2).item() == 4:
                     break
@@ -609,7 +608,6 @@ class ImageCaptioning(torch.nn.Module):
                 output = output.permute(1, 2, 0)
                 
                 # calculate loss
-                print(output.shape, vectorized_captions.shape)
                 try:
                     loss = criterion(output, vectorized_captions)
                 except:
