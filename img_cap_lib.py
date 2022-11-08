@@ -386,7 +386,7 @@ class FlickrDataset(Dataset):
         # turn string into list
         caption = self.embedding.caption_to_embedding(eval(caption))
         # get length
-        length = self.captions.iloc[idx, 2] + 2
+        length = self.captions.caption_word_length.values[idx] + 2
 
         return image, caption, length, vectorized_caption
 
@@ -578,7 +578,7 @@ class ImageCaptioning(torch.nn.Module):
         --------
             losses list:                A list containing the loss for each batch.
             model_state_dict dict:      The state_dict of the trained model.
-            model_stats dict:           A dictionary containing the training stats and general information about the model.
+            model_stats dict:           A dictionary containifng the training stats and general information about the model.
         '''
         # setup variables
         losses = []
