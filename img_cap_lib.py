@@ -401,7 +401,7 @@ class DecoderRNN(torch.nn.Module):
         num_layers int: The number of layers of the RNN. 
         dropout float: The dropout rate of the RNN. 
     '''
-    def __init__(self, input_size:int, hidden_size:int, len_vocab:int, num_layers:int=1, dropout:float=0.0, len_subtract:int=1):
+    def __init__(self, input_size:int, hidden_size:int, len_vocab:int, num_layers:int=1, dropout:float=0.0, len_subtract:int=0):
         super(DecoderRNN, self).__init__()
         self.len_subtract = len_subtract
         self.input_size = input_size
@@ -527,39 +527,6 @@ class ImageCaptioning(torch.nn.Module):
 
         return captions
 
-        ############################ old version of forward function
-        # # extract features from images
-        # input = self.encoder.forward(images)
-
-        # # create tensor for storing indexes
-        # indexes = torch.tensor([], dtype=torch.long).to(device)
-
-        # # TODO: implement for a whole batch of images
-
-        # # loop over max_length 
-        # with torch.no_grad():
-        #     hidden = None
-        #     for i in range(max_length):
-        #         output, hidden = self.decoder.rnn(input, hidden)
-        #         index = self.decoder.fc(output)
-        #         indexes = torch.cat((indexes, index.argmax(2).T), 0)
-        #         # get embedding vector of last predicted word
-        #         input = self.embedding.embedding_matrix[indexes[-1, :]].unsqueeze(0)
-        #         input = input.to(device)
-        #         # break when <EOS> is predicted and fill up the rest of the caption with <PAD>
-        #         if index.argmax(2).item() == 4:
-        #             break
-
-        #     # pad output with 1's until max_caption_length (seq_len, batch_size)
-        #     if indexes.shape[0] < max_length:
-        #         indexes = torch.cat((indexes, torch.ones((max_length - indexes.shape[0], 1), dtype=torch.long).to(device)), 0)
-        #     elif indexes.shape[0] > max_length:
-        #         indexes = indexes[:max_length, :]
-
-        # captions = self.embedding.index_to_caption(indexes)
-
-        # return captions
-
     # create training function for ImageCaptioning model
     def train_model(self, loader, optimizer, criterion, epochs:int=200, print_every:int=100):
         '''
@@ -651,6 +618,15 @@ class ImageCaptioning(torch.nn.Module):
             print(f'Epoch: {epoch+1}/{epochs} | Average Epoch Loss: {epoch_loss/len(loader)}')
             average_epoch_losses.append(epoch_loss/len(loader))
 
+            # save model when loss smaller than previous
+            if i > 2 and losses[-1] < losses[-2]:
+                model_stats['encoder_state_dict'] = self.encoder.state_dict()
+                model_stats['decoder_state_dict'] = self.decoder.state_dict()
+                model_stats['model_state_dict'] = self.state_dict()
+                model_stats['embedding'] = self.embedding
+                model_stats['last_loss'] = loss.item()
+                torch.save(model_stats, "temp_model.pt")
+
         model_stats['end_time'] = time.time()
         model_stats['total_time'] = model_stats['end_time'] - model_stats['start_time']
         model_stats['encoder_state_dict'] = self.encoder.state_dict()
@@ -659,6 +635,7 @@ class ImageCaptioning(torch.nn.Module):
         model_stats['embedding'] = self.embedding
         model_stats['losses'] = losses
         model_stats['average_epoch_losses'] = average_epoch_losses
+        model_stats['last_loss'] = loss.item()
 
         return model_stats
     
