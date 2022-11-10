@@ -12,3 +12,4 @@ flickr8k_copy
 *.txt
 .vector_cache
 venv
+.DS_Store
