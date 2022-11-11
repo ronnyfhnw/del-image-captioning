@@ -76,8 +76,9 @@ class CaptionPreprocessor:
     - creates embedding matrix using GloVe
 
     '''
-    def __init__(self, captions:pd.DataFrame, embedding=None, vocabulary=None, embedding_dim:int=300, max_length:int=22, min_frequency:int=1, sos_token='<SOS>', eos_token='<EOS>', pad_token='<PAD>', unk_token='<UNK>'):
+    def __init__(self, captions:pd.DataFrame, captions_path:str, embedding=None, vocabulary=None, embedding_dim:int=300, max_length:int=22, min_frequency:int=1, sos_token='<SOS>', eos_token='<EOS>', pad_token='<PAD>', unk_token='<UNK>'):
         assert captions.columns[1] == 'caption', 'Captions are assumed to be in the first column of the dataframe'
+        self.captions_path = captions_path
         self.captions = captions
         self.embedding_dim = embedding_dim
         self.min_frequency = min_frequency
@@ -116,7 +117,7 @@ class CaptionPreprocessor:
         print("Removed Captions: ", old_shape[0] - self.captions.shape[0], ", in Percent: ", round(((old_shape[0] - self.captions.shape[0]) / old_shape[0]) * 100, 2))
 
         # check if for all iamge_paths a image exists
-        image_paths = np.array(os.listdir("flickr8k/images"))
+        image_paths = np.array(os.listdir(self.captions_path.rstrip("captions.txt") + "images"))
         self.captions = self.captions[self.captions.image.isin(image_paths)]
 
     def tokenize_captions(self, caption_length:int):
@@ -548,6 +549,7 @@ class ImageCaptioning(torch.nn.Module):
             model_stats dict:           A dictionary containifng the training stats and general information about the model.
         '''
         # setup variables
+        best_loss = np.inf
         losses = []
         model_stats = {}
         model_stats['epochs'] = epochs
@@ -619,7 +621,7 @@ class ImageCaptioning(torch.nn.Module):
             average_epoch_losses.append(epoch_loss/len(loader))
 
             # save model when loss smaller than previous
-            if i > 2 and losses[-1] < losses[-2]:
+            if best_loss > loss.item():
                 model_stats['encoder_state_dict'] = self.encoder.state_dict()
                 model_stats['decoder_state_dict'] = self.decoder.state_dict()
                 model_stats['model_state_dict'] = self.state_dict()
@@ -638,7 +640,6 @@ class ImageCaptioning(torch.nn.Module):
         model_stats['last_loss'] = loss.item()
 
         return model_stats
-    
     
 def load_captioning_model(model_stats:dict):
     '''
@@ -715,7 +716,7 @@ class ImagePreprocessor:
         else:
             transform = T.Compose([
                 T.CenterCrop((max_img.height.values[0], max_img.width.values[0])),
-                T.Resize((224, 224)),
+                T.Resize(self.image_size),
                 T.ToTensor()
             ])
 
@@ -736,3 +737,59 @@ class ImagePreprocessor:
         else:
             print("transformed_images folder already exists. No preprocessing necessary.")
 
+class Evaluator:
+    def __init__(self, model, dataloader, device):
+        # initiate variables 
+        self.model = model
+        self.dataloader = dataloader
+        self.device = device
+        # self.model.eval()
+        # assert self.dataloader.batch_size == 1, "Batch size must be 1 for evaluation."
+    
+    def evaluate(self):
+        scores = []
+
+        for i, (images, captions, lengths, vectorized_captions) in enumerate(self.dataloader):
+            # move to device
+            images = images.to(self.device)
+            captions = captions.to(self.device)
+            vectorized_captions = vectorized_captions.to(self.device)
+            
+            # forward pass
+            output = self.model.forward(images)
+            references = self.model.words[vectorized_captions.cpu()]
+
+            for j in range(output.shape[0]):
+                candidate = self.output_to_sentence(output[j,:])
+                reference = self.output_to_sentence(references[j,:])
+                scores.append(self.bleu_score(candidate, reference))
+            
+            print(f"Batch: {i+1} of {len(self.dataloader)}")
+
+        print(f"Average BLEU score: {np.mean(scores)}")
+        return np.mean(scores), scores
+
+    @staticmethod
+    def output_to_sentence(output:list):
+        '''
+        Removes Tokens from model output.
+        '''
+        output = [token for token in output if token not in ["<SOS>", "<EOS>", "<PAD>"]]
+        return output
+
+    @staticmethod
+    def bleu_score(reference, candidate):
+        '''
+        Calculates the BLEU score for a single reference and candidate. Uses the SmoothingFunction for smoothing when no overlap between certain n-grams is found. 
+
+        Params:
+        -------
+        reference: list of strings - The reference sentence.
+        candidate: list of strings - The candidate sentence.
+
+        Returns:
+        --------
+        bleu_score: float - The BLEU score.
+        '''
+        # calculate the BLEU score
+        return nltk.translate.bleu_score.sentence_bleu(reference, candidate, smoothing_function=nltk.translate.bleu_score.SmoothingFunction().method1)
