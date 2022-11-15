@@ -709,6 +709,7 @@ class ImagePreprocessor:
         # build transform
         if self.normalize:
             transform = T.Compose([
+                T.CenterCrop((max_img.height.values[0], max_img.width.values[0])),
                 T.Resize(self.image_size),
                 T.ToTensor(),
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
