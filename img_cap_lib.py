@@ -337,7 +337,10 @@ class EncoderCNN(torch.nn.Module):
         # load net
         self.cnn = net(weights=pretrained_weights)
         # replace last layer
-        self.cnn.fc = torch.nn.Linear(in_features=self.cnn.fc.in_features, out_features=self.output_size, bias=True)
+        try:
+            self.cnn.fc = torch.nn.Linear(in_features=self.cnn.fc.in_features, out_features=self.output_size, bias=True)
+        except AttributeError:
+            self.cnn.classifier[2] = torch.nn.Linear(in_features=self.cnn.classifier[2].in_features, out_features=output_size)
         # create linear stack for net
         self.net = torch.nn.Sequential(
             self.cnn
@@ -712,7 +715,7 @@ class ImagePreprocessor:
                 T.CenterCrop((max_img.height.values[0], max_img.width.values[0])),
                 T.Resize(self.image_size),
                 T.ToTensor(),
-                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # values from: https://pytorch.org/vision/stable/models/generated/torchvision.models.convnext_tiny.html#torchvision.models.convnext_tiny
             ])
         else:
             transform = T.Compose([
