@@ -339,12 +339,13 @@ class EncoderCNN(torch.nn.Module):
         # replace last layer
         try:
             self.cnn.fc = torch.nn.Linear(in_features=self.cnn.fc.in_features, out_features=self.output_size, bias=True)
+            self.cnn = torch.nn.Sequential(
+                self.cnn
+            )
         except AttributeError:
             self.cnn.classifier[2] = torch.nn.Linear(in_features=self.cnn.classifier[2].in_features, out_features=output_size)
+            self.net = self.cnn
         # create linear stack for net
-        self.net = torch.nn.Sequential(
-            self.cnn
-        )
         # send to device
         self.net = self.net.to(device)
 

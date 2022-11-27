@@ -15,3 +15,5 @@ venv
 .DS_Store
 .DS_Store
 flickr8k_tiny
+scores
+models
