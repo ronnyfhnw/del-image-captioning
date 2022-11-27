@@ -373,9 +373,10 @@ class FlickrDataset(Dataset):
         lengths torch.Tensor: A tensor of the lengths of the captions. Shape: (batch_size)
         vectorized_caption torch.Tensor: A tensor of the vectorized caption. Shape: (batch_size, max_caption_length, embedding_size)
     '''
-    def __init__(self, captions, embedding):
+    def __init__(self, captions, embedding, image_folder:str):
         self.captions = captions
         self.embedding = embedding
+        self.image_folder = image_folder
 
 
     def __len__(self):
@@ -384,7 +385,7 @@ class FlickrDataset(Dataset):
     def __getitem__(self, idx):
         vectorized_caption = torch.from_numpy(np.array(self.captions.vectorized_caption.values[idx]))
         # get image
-        image = torchvision.io.read_image("flickr8k/transformed_images/" + self.captions.iloc[idx, 0]).float()
+        image = torchvision.io.read_image(self.image_folder + "/transformed_images/" + self.captions.iloc[idx, 0]).float()
         # get caption
         caption = self.captions.caption.values[idx]
         # turn string into list
@@ -734,7 +735,7 @@ class ImagePreprocessor:
                 # transform image
                 image = transform(image)
                 # check shape
-                assert image.shape == (3, 224, 224)
+                assert image.shape == (3, self.image_size[0], self.image_size[1])
                 # save image to disk
                 torchvision.utils.save_image(image, self.image_folder_path + "/transformed_images/" + image_path)
             print("image preprocessing finished")
