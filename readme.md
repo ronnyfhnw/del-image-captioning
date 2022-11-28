@@ -9,15 +9,13 @@ Es wurde versucht die Resultate des Papers von [1] zu reproduzieren.
 
 # Beschreibung Repository
 
+Um die Notebooks und Dateien ausführen zu können, muss ein Virtualenvironment erstellt und die Abhängigkeiten installiert werden. Diese sind in der Datei *requirements.txt* aufgelistet.
+
 Im Notebook *Modellentwicklung.ipynb* ist die explorative Datenanalyse und die Modellentwicklung beschrieben. In einem weiteren Schritt wurde die Modellstruktur ausgelagert in die Datei *img_cap_lib.py*.
 
-Das Notebook *Resulate.ipynb* zeigt die Resultate der verschiedenen Modelle.
+Die beiden Notebooks *training_ConvNeXt_tiny.ipynb* und *training_ResNEXt50.ipynb* beeinhalten die Trainingsprozesse für beide Modelle. 
 
-Im Ordner *notebooks_for_training* befinden sich die Notebooks, welche zum Training der Modelle verwendet wurde.
-
-Im Ordner *models* befinden sich die Modelle.
-
-Um die Notebooks und Dateien ausführen zu können, muss ein Virtualenvironment erstellt und die Abhängigkeiten installiert werden. Diese sind in der Datei *requirements.txt* aufgelistet.
+Die beiden Notebooks *Evaluation_ConvNeXt_tiny.ipynb* und *Evaluation_ResNEXt50.ipynb* beinhalten die Evaluierung der Modelle.
 
 # Quellen
 

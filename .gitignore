@@ -1,3 +1,4 @@
+scores
 flickr8k/images/*.jpg
 flickr8k
 flickr8k_copy
@@ -15,5 +16,4 @@ venv
 .DS_Store
 .DS_Store
 flickr8k_tiny
-scores
 models
