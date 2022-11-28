@@ -339,7 +339,7 @@ class EncoderCNN(torch.nn.Module):
         # replace last layer
         try:
             self.cnn.fc = torch.nn.Linear(in_features=self.cnn.fc.in_features, out_features=self.output_size, bias=True)
-            self.cnn = torch.nn.Sequential(
+            self.net = torch.nn.Sequential(
                 self.cnn
             )
         except AttributeError:
