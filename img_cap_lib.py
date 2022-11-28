@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 import pickle
 import subprocess
 import os
+import nltk
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def data_download(target_folder:str="flickr8k"):

@@ -17,3 +17,11 @@ venv
 .DS_Store
 flickr8k_tiny
 models
+.scores/tiny_train_scores.pkl
+.scores/tiny_test_scores.pkl
+.scores/standart_train_scores.pkl
+.scores/standart_test_scores.pkl
+scores/tiny_train_scores.pkl
+scores/tiny_test_scores.pkl
+scores/standart_train_scores.pkl
+scores/standart_test_scores.pkl
